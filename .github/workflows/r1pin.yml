@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for PAIR in r1aud:r1ghpin r2aud:r2audgh r1aud2:r1cp1 r1aud2:r1cp2 r1aud2:r1cp3 r1aud2:r1cp4 r1aud2:r1cp5; do
+          for PAIR in r1aud:r1ghpin r2aud:r2audgh r1aud2:r1cp1 r1aud2:r1cp2 r1aud2:r1cp3 r1aud2:r1cp4 r1aud2:r1cp5 r1aud2:r1cp6 r1aud2:r1cp7; do
             A=${PAIR%%:*}; P=${PAIR##*:}
             T=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$A" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')
             echo "### aud=$A provider=$P claims:"
